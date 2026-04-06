@@ -1,19 +1,37 @@
 from __future__ import annotations
 
 import argparse
+import html
 import re
 import shutil
 import subprocess
-import sys
 import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event
 from typing import Callable
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
 from bs4 import BeautifulSoup
+
+APP_VERSION = "0.2.0"
+SUPPORTED_PAGE_HOSTS = frozenset({"ci.me", "www.ci.me"})
+SUPPORTED_SCHEMES = frozenset({"http", "https"})
+WINDOWS_RESERVED_NAMES = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{number}" for number in range(1, 10)),
+        *(f"LPT{number}" for number in range(1, 10)),
+    }
+)
+REQUEST_TIMEOUT_SECONDS = 15
+MIN_VALID_FILE_SIZE = 100_000
+INVALID_FILENAME_PATTERN = re.compile(r'[<>:"/\\|?*]')
 
 REQUEST_HEADERS = {
     "User-Agent": (
@@ -23,7 +41,6 @@ REQUEST_HEADERS = {
     "Referer": "https://ci.me/",
     "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
 }
-MIN_VALID_FILE_SIZE = 100_000
 
 
 class CimeDownloaderError(RuntimeError):
@@ -61,21 +78,46 @@ def sanitize_filename(title: str) -> str:
         return "unnamed_video"
 
     cleaned = unicodedata.normalize("NFKC", title)
-    cleaned = re.sub(r'[<>:"/\\|?*]', "", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = "".join(character for character in cleaned if ord(character) >= 32)
+    cleaned = INVALID_FILENAME_PATTERN.sub("", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .")
 
     if len(cleaned) > 180:
-        cleaned = cleaned[:177] + "..."
+        cleaned = cleaned[:177].rstrip(" .") + "..."
 
-    return cleaned or "unnamed_video"
+    if not cleaned:
+        return "unnamed_video"
+
+    if _is_reserved_windows_name(cleaned):
+        return f"{cleaned}_video"
+
+    return cleaned
 
 
 def ensure_mp4_filename(name: str) -> str:
-    cleaned = name.strip()
+    cleaned = unicodedata.normalize("NFKC", name.strip())
     if not cleaned:
         raise CimeDownloaderError("파일명을 입력해 주세요.")
-    if not Path(cleaned).suffix:
-        cleaned += ".mp4"
+    if any(ord(character) < 32 for character in cleaned):
+        raise CimeDownloaderError("파일명에 제어 문자를 넣을 수 없습니다.")
+    if Path(cleaned).name != cleaned or "/" in cleaned or "\\" in cleaned:
+        raise CimeDownloaderError("파일명에는 폴더 경로를 넣을 수 없습니다.")
+    if INVALID_FILENAME_PATTERN.search(cleaned):
+        raise CimeDownloaderError("파일명에 사용할 수 없는 문자가 포함되어 있습니다.")
+
+    cleaned = cleaned.rstrip(" .")
+    if not cleaned:
+        raise CimeDownloaderError("파일명이 올바르지 않습니다.")
+
+    suffix = Path(cleaned).suffix.lower()
+    if not suffix:
+        cleaned = f"{cleaned}.mp4"
+    elif suffix != ".mp4":
+        cleaned = f"{Path(cleaned).stem}.mp4"
+
+    if _is_reserved_windows_name(cleaned):
+        raise CimeDownloaderError("Windows 예약어는 파일명으로 사용할 수 없습니다.")
+
     return cleaned
 
 
@@ -85,21 +127,59 @@ def suggest_filename(title: str | None) -> str:
     return "downloaded_cime_video.mp4"
 
 
+def validate_page_url(url: str) -> str:
+    candidate = (url or "").strip()
+    if not candidate:
+        raise CimeDownloaderError("ci.me VOD URL을 입력해 주세요.")
+
+    parsed = urlparse(candidate)
+    if parsed.scheme.lower() not in SUPPORTED_SCHEMES or not parsed.netloc:
+        raise CimeDownloaderError("http/https 형식의 ci.me URL만 지원합니다.")
+
+    host = (parsed.hostname or "").lower()
+    if host not in SUPPORTED_PAGE_HOSTS:
+        raise CimeDownloaderError("ci.me VOD 페이지 URL만 지원합니다.")
+
+    if "/vods/" not in parsed.path:
+        raise CimeDownloaderError("ci.me VOD 상세 페이지 URL만 지원합니다.")
+
+    return urlunparse(parsed._replace(fragment=""))
+
+
+def build_output_path(output_dir: str | Path, output_name: str) -> Path:
+    directory = Path(output_dir).expanduser()
+    if directory.exists() and not directory.is_dir():
+        raise CimeDownloaderError("저장 위치가 폴더가 아닙니다.")
+
+    safe_name = ensure_mp4_filename(output_name)
+    output_path = directory / safe_name
+
+    resolved_directory = directory.resolve(strict=False)
+    resolved_output = output_path.resolve(strict=False)
+    if resolved_output.parent != resolved_directory:
+        raise CimeDownloaderError("저장 경로가 선택한 폴더 밖으로 벗어날 수 없습니다.")
+
+    return output_path
+
+
 def get_video_info(url: str) -> VideoInfo:
+    page_url = validate_page_url(url)
+
     try:
-        response = requests.get(url, headers=REQUEST_HEADERS, timeout=15)
+        response = requests.get(page_url, headers=REQUEST_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
         response.raise_for_status()
     except requests.RequestException as exc:
         raise CimeDownloaderError(f"페이지 요청 실패: {exc}") from exc
 
+    final_page_url = _validate_final_page_url(response.url)
     soup = BeautifulSoup(response.text, "html.parser")
     title = _extract_title(soup)
-    m3u8_url = _extract_m3u8(response.text, soup)
+    m3u8_url = _extract_m3u8(response.text, soup, final_page_url)
 
     if not m3u8_url:
         raise CimeDownloaderError("m3u8 주소를 찾지 못했습니다.")
 
-    return VideoInfo(page_url=url, title=title, m3u8_url=m3u8_url)
+    return VideoInfo(page_url=final_page_url, title=title, m3u8_url=m3u8_url)
 
 
 def get_title_and_m3u8(url: str) -> tuple[str | None, str | None]:
@@ -118,12 +198,17 @@ def download_with_ffmpeg(
     stop_event: Event | None = None,
 ) -> Path:
     output_path = Path(output_file).expanduser()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.suffix.lower() != ".mp4":
+        raise CimeDownloaderError("출력 파일은 mp4 형식만 지원합니다.")
 
     if shutil.which("ffmpeg") is None:
         raise CimeDownloaderError("ffmpeg를 찾지 못했습니다. PATH 설정을 확인해 주세요.")
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     if output_path.exists():
+        if output_path.is_dir():
+            raise CimeDownloaderError("출력 경로가 폴더와 충돌합니다.")
         if not overwrite:
             raise FileExistsError(f"파일이 이미 존재합니다: {output_path}")
         try:
@@ -135,6 +220,10 @@ def download_with_ffmpeg(
 
     cmd = [
         "ffmpeg",
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel",
+        "error",
         "-i",
         m3u8_url,
         "-c",
@@ -150,15 +239,19 @@ def download_with_ffmpeg(
         ProgressSnapshot(
             state="starting",
             output_path=output_path,
-            message="ffmpeg를 실행하고 있습니다.",
+            message="ffmpeg를 안전 모드로 실행하고 있습니다.",
         ),
     )
 
     try:
         process = subprocess.Popen(
             cmd,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except OSError as exc:
@@ -172,6 +265,7 @@ def download_with_ffmpeg(
         while process.poll() is None:
             if stop_event and stop_event.is_set():
                 _terminate_process(process)
+                _cleanup_cancelled_output(output_path)
                 raise DownloadCancelled("사용자가 다운로드를 취소했습니다.")
 
             time.sleep(1)
@@ -202,11 +296,17 @@ def download_with_ffmpeg(
             last_size = current_size
 
         return_code = process.wait()
+        stderr_output = ""
+        if process.stderr is not None:
+            stderr_output = process.stderr.read().strip()
+
         final_size = output_path.stat().st_size if output_path.exists() else 0
 
         if return_code != 0:
-            raise CimeDownloaderError("ffmpeg가 비정상 종료되었습니다.")
+            detail = f" ({stderr_output.splitlines()[-1]})" if stderr_output else ""
+            raise CimeDownloaderError(f"ffmpeg가 비정상 종료되었습니다.{detail}")
         if final_size <= MIN_VALID_FILE_SIZE:
+            _cleanup_cancelled_output(output_path)
             raise CimeDownloaderError("다운로드 실패 또는 파일이 거의 비어 있습니다.")
 
         _emit(
@@ -228,7 +328,7 @@ def download_with_ffmpeg(
             ProgressSnapshot(
                 state="cancelled",
                 output_path=output_path,
-                downloaded_bytes=output_path.stat().st_size if output_path.exists() else 0,
+                downloaded_bytes=0,
                 message="다운로드가 취소되었습니다.",
             ),
         )
@@ -269,17 +369,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
 
-    page_url = args.url.strip()
-
     try:
-        info = get_video_info(page_url)
-        output_name = (
-            ensure_mp4_filename(args.output_name)
-            if args.output_name
-            else suggest_filename(info.title)
-        )
-        output_dir = Path(args.output_dir).expanduser()
-        output_path = output_dir / output_name
+        info = get_video_info(args.url)
+        output_name = ensure_mp4_filename(args.output_name) if args.output_name else suggest_filename(info.title)
+        output_path = build_output_path(args.output_dir, output_name)
     except CimeDownloaderError as exc:
         print(exc)
         return 1
@@ -331,24 +424,58 @@ def _extract_title(soup: BeautifulSoup) -> str | None:
     return None
 
 
-def _extract_m3u8(response_text: str, soup: BeautifulSoup) -> str | None:
+def _extract_m3u8(response_text: str, soup: BeautifulSoup, base_url: str) -> str | None:
+    pattern = r"""(https?://[^\s"'<>]+\.m3u8[^\s"'<>]*)"""
     scripts = soup.find_all(
         "script",
         string=re.compile(r"playbackUrl|master\.m3u8", re.IGNORECASE),
     )
-    pattern = r"""(https?://[^\s"'<>]+\.m3u8[^\s"'<>]*)"""
 
-    for script in scripts:
-        if script.string:
-            match = re.search(pattern, script.string)
-            if match:
-                return match.group(1)
+    for source_text in [_decode_escaped_text(script.string) for script in scripts if script.string]:
+        match = re.search(pattern, source_text)
+        if match:
+            media_url = _validate_media_url(match.group(1), base_url)
+            if media_url:
+                return media_url
 
-    match = re.search(pattern, response_text)
+    normalized_response = _decode_escaped_text(response_text)
+    match = re.search(pattern, normalized_response)
     if match:
-        return match.group(1)
+        media_url = _validate_media_url(match.group(1), base_url)
+        if media_url:
+            return media_url
 
     return None
+
+
+def _validate_final_page_url(url: str) -> str:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme.lower() not in SUPPORTED_SCHEMES or host not in SUPPORTED_PAGE_HOSTS:
+        raise CimeDownloaderError("지원되지 않는 페이지로 리디렉션되었습니다.")
+    if "/vods/" not in parsed.path:
+        raise CimeDownloaderError("VOD 상세 페이지 확인에 실패했습니다.")
+    return urlunparse(parsed._replace(fragment=""))
+
+
+def _validate_media_url(url: str, base_url: str) -> str | None:
+    candidate = urljoin(base_url, url.strip())
+    parsed = urlparse(candidate)
+    if parsed.scheme.lower() not in SUPPORTED_SCHEMES or not parsed.netloc:
+        return None
+    if not parsed.path.lower().endswith(".m3u8"):
+        return None
+    return urlunparse(parsed._replace(fragment=""))
+
+
+def _decode_escaped_text(value: str) -> str:
+    decoded = value.replace("\\/", "/").replace("\\u0026", "&")
+    return html.unescape(decoded)
+
+
+def _is_reserved_windows_name(name: str) -> bool:
+    stem = Path(name).stem.rstrip(" .").upper()
+    return stem in WINDOWS_RESERVED_NAMES
 
 
 def _strip_site_suffix(text: str) -> str:
@@ -363,11 +490,19 @@ def _emit(callback: ProgressCallback | None, snapshot: ProgressSnapshot) -> None
         callback(snapshot)
 
 
-def _terminate_process(process: subprocess.Popen[bytes]) -> None:
+def _terminate_process(process: subprocess.Popen[object]) -> None:
     process.terminate()
     time.sleep(1)
     if process.poll() is None:
         process.kill()
+
+
+def _cleanup_cancelled_output(output_path: Path) -> None:
+    try:
+        if output_path.exists() and output_path.stat().st_size < MIN_VALID_FILE_SIZE:
+            output_path.unlink()
+    except OSError:
+        return
 
 
 def _format_size(value: int | None) -> str:
