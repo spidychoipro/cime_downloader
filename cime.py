@@ -16,7 +16,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 import requests
 from bs4 import BeautifulSoup
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 SUPPORTED_PAGE_HOSTS = frozenset({"ci.me", "www.ci.me"})
 SUPPORTED_SCHEMES = frozenset({"http", "https"})
 WINDOWS_RESERVED_NAMES = frozenset(
