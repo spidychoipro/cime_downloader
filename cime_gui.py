@@ -25,16 +25,16 @@ from cime import (
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-WINDOW_BG = "#171717"
-SURFACE = "#202020"
-SURFACE_ALT = "#262626"
-SURFACE_RAISED = "#2d2d2d"
+WINDOW_BG = "#121212"
+SURFACE = "#1e1e1e"
+SURFACE_ALT = "#252525"
+SURFACE_RAISED = "#333333"
 BORDER = "#3a3a3a"
 TEXT_PRIMARY = "#f1f1f1"
 TEXT_MUTED = "#a7a7a7"
-ACCENT = "#1687d9"
-ACCENT_HOVER = "#0f76bf"
-ACCENT_STRONG = "#1b97ee"
+ACCENT = "#21a366"
+ACCENT_HOVER = "#1a8553"
+ACCENT_STRONG = "#28c279"
 DANGER = "#532121"
 DANGER_BORDER = "#ae3333"
 SUCCESS = "#1f4d32"
@@ -48,7 +48,7 @@ class QueueCard(ctk.CTkFrame):
     def __init__(self, parent: ctk.CTkFrame) -> None:
         super().__init__(
             parent,
-            fg_color=SURFACE_ALT,
+            fg_color=SURFACE,
             corner_radius=12,
             border_width=1,
             border_color=BORDER,
@@ -58,25 +58,25 @@ class QueueCard(ctk.CTkFrame):
 
         self.preview = ctk.CTkFrame(
             self,
-            width=88,
-            height=58,
-            fg_color="#353535",
+            width=100,
+            height=64,
+            fg_color="#303030",
             corner_radius=8,
         )
-        self.preview.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(10, 8), pady=10)
+        self.preview.grid(row=0, column=0, rowspan=3, sticky="nsw", padx=12, pady=12)
         self.preview.grid_propagate(False)
 
         self.preview_label = ctk.CTkLabel(
             self.preview,
-            text="ci.me",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            text="VIDEO",
+            font=ctk.CTkFont(size=12, weight="bold"),
             text_color=TEXT_MUTED,
         )
         self.preview_label.place(relx=0.5, rely=0.5, anchor="center")
 
         self.title_var = tk.StringVar(value="Queue is empty")
-        self.message_var = tk.StringVar(value="ci.me VOD URL을 상단 입력 바에 넣어 주세요.")
-        self.meta_var = tk.StringVar(value="ready")
+        self.message_var = tk.StringVar(value="Waiting for a link...")
+        self.meta_var = tk.StringVar(value="")
         self.badge_var = tk.StringVar(value="IDLE")
 
         self.title_label = ctk.CTkLabel(
@@ -84,22 +84,22 @@ class QueueCard(ctk.CTkFrame):
             textvariable=self.title_var,
             anchor="w",
             justify="left",
-            font=ctk.CTkFont(size=17, weight="bold"),
+            font=ctk.CTkFont(size=15, weight="bold"),
             text_color=TEXT_PRIMARY,
         )
-        self.title_label.grid(row=0, column=1, sticky="ew", padx=(0, 8), pady=(12, 2))
+        self.title_label.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=(12, 0))
 
         self.badge = ctk.CTkLabel(
             self,
             textvariable=self.badge_var,
             fg_color=SURFACE_RAISED,
-            corner_radius=999,
-            padx=10,
-            pady=4,
-            font=ctk.CTkFont(size=11, weight="bold"),
+            corner_radius=6,
+            padx=8,
+            pady=2,
+            font=ctk.CTkFont(size=10, weight="bold"),
             text_color=TEXT_MUTED,
         )
-        self.badge.grid(row=0, column=2, sticky="ne", padx=(0, 10), pady=(12, 0))
+        self.badge.grid(row=0, column=2, sticky="ne", padx=(0, 12), pady=(12, 0))
 
         self.message_label = ctk.CTkLabel(
             self,
@@ -107,9 +107,9 @@ class QueueCard(ctk.CTkFrame):
             anchor="w",
             justify="left",
             font=ctk.CTkFont(size=13),
-            text_color=TEXT_PRIMARY,
+            text_color=TEXT_MUTED,
         )
-        self.message_label.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=(0, 3))
+        self.message_label.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(0, 12), pady=(2, 2))
 
         self.meta_label = ctk.CTkLabel(
             self,
@@ -119,18 +119,18 @@ class QueueCard(ctk.CTkFrame):
             font=ctk.CTkFont(size=12),
             text_color=TEXT_MUTED,
         )
-        self.meta_label.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=(0, 11))
+        self.meta_label.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(0, 12), pady=(0, 12))
 
     def apply_state(self, state: str, title: str, message: str, meta: str) -> None:
         styles = {
-            "idle": (SURFACE_ALT, BORDER, SURFACE_RAISED, TEXT_MUTED, "#353535"),
-            "fetching": ("#1f2c38", ACCENT, ACCENT, WINDOW_BG, "#11415f"),
-            "ready": (SURFACE_ALT, BORDER, SURFACE_RAISED, TEXT_MUTED, "#353535"),
-            "queued": ("#25303a", ACCENT, ACCENT, WINDOW_BG, "#124767"),
-            "downloading": ("#1e3140", ACCENT_STRONG, ACCENT_STRONG, WINDOW_BG, "#10537e"),
-            "completed": (SUCCESS, SUCCESS_BORDER, SUCCESS_BORDER, TEXT_PRIMARY, "#245e3f"),
-            "cancelled": ("#3a3021", WARNING_BORDER, WARNING_BORDER, TEXT_PRIMARY, "#5d4920"),
-            "error": (DANGER, DANGER_BORDER, DANGER_BORDER, "#ffd1d1", "#6a2626"),
+            "idle": (SURFACE, BORDER, SURFACE_RAISED, TEXT_MUTED, "#303030"),
+            "fetching": (SURFACE, ACCENT, ACCENT, "#ffffff", "#1a4d35"),
+            "ready": (SURFACE, BORDER, SURFACE_RAISED, TEXT_MUTED, "#303030"),
+            "queued": (SURFACE, ACCENT, ACCENT, "#ffffff", "#1a4d35"),
+            "downloading": (SURFACE, ACCENT_STRONG, ACCENT_STRONG, "#ffffff", "#1a4d35"),
+            "completed": (SURFACE, SUCCESS_BORDER, SUCCESS_BORDER, "#ffffff", "#1a4d35"),
+            "cancelled": (SURFACE, WARNING_BORDER, WARNING_BORDER, "#ffffff", "#4d3a1a"),
+            "error": (SURFACE, DANGER_BORDER, DANGER_BORDER, "#ffffff", "#4d1a1a"),
         }
         card_bg, card_border, badge_bg, badge_text, preview_bg = styles[state]
 
@@ -170,6 +170,7 @@ class CimeDownloaderApp(ctk.CTk):
         self.folder_summary_var = tk.StringVar(value=self._compact_path(self.output_dir_var.get()))
         self.file_summary_var = tk.StringVar(value=self.file_name_var.get())
 
+        self.smart_mode_enabled = False
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._handle_close)
         self.after(150, self._poll_queue)
@@ -185,14 +186,13 @@ class CimeDownloaderApp(ctk.CTk):
         self._build_queue_area(shell)
         self._build_footer(shell)
 
-        self.url_entry.focus_set()
         self._set_task_visual(
             "idle",
             "Queue is empty",
-            "ci.me VOD URL을 상단 입력 바에 넣고 분석하거나 바로 다운로드하세요.",
+            "Click '+ Paste Link' to start downloading.",
             "ready",
         )
-        self.log("앱이 준비되었습니다. v0.3 큐 레이아웃이 활성화되었습니다.")
+        self.log("App ready. Modernized UI enabled.")
         self._sync_controls()
 
     def _build_header(self, parent: ctk.CTkFrame) -> None:
@@ -204,120 +204,72 @@ class CimeDownloaderApp(ctk.CTk):
             border_color=BORDER,
         )
         header.grid(row=0, column=0, sticky="ew")
-        header.grid_columnconfigure(1, weight=1)
+        header.grid_columnconfigure(0, weight=1)
 
-        top_row = ctk.CTkFrame(header, fg_color="transparent")
-        top_row.grid(row=0, column=0, columnspan=2, sticky="ew", padx=14, pady=(10, 2))
-        top_row.grid_columnconfigure(1, weight=1)
+        toolbar = ctk.CTkFrame(header, fg_color="transparent")
+        toolbar.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        toolbar.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(
-            top_row,
-            text=f"cime Downloader  {APP_VERSION}",
-            font=ctk.CTkFont(size=16, weight="bold"),
+        self.paste_link_button = ctk.CTkButton(
+            toolbar,
+            text="+ Paste Link",
+            width=140,
+            height=40,
+            corner_radius=8,
+            command=self.paste_and_download,
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOVER,
             text_color=TEXT_PRIMARY,
-        ).grid(row=0, column=0, sticky="w")
+            font=ctk.CTkFont(size=14, weight="bold"),
+        )
+        self.paste_link_button.grid(row=0, column=0, padx=(5, 10))
+
+        self.smart_mode_button = ctk.CTkButton(
+            toolbar,
+            text="💡 Smart Mode",
+            width=130,
+            height=40,
+            corner_radius=8,
+            command=self.toggle_smart_mode,
+            fg_color=SURFACE_RAISED,
+            hover_color="#383838",
+            border_width=1,
+            border_color=BORDER,
+            text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(size=13),
+        )
+        self.smart_mode_button.grid(row=0, column=1, sticky="w")
 
         self.mini_progress = ctk.CTkProgressBar(
-            top_row,
+            toolbar,
             width=120,
             height=8,
             corner_radius=999,
             progress_color=ACCENT,
             fg_color=SURFACE_RAISED,
         )
-        self.mini_progress.grid(row=0, column=2, sticky="e")
+        self.mini_progress.grid(row=0, column=2, padx=(10, 5))
         self.mini_progress.set(0)
 
-        menu_row = ctk.CTkFrame(header, fg_color="transparent")
-        menu_row.grid(row=1, column=0, columnspan=2, sticky="w", padx=14, pady=(0, 8))
-        for index, label in enumerate(("작업", "도구", "옵션", "도움말")):
-            ctk.CTkLabel(
-                menu_row,
-                text=label,
-                font=ctk.CTkFont(size=12),
-                text_color=TEXT_MUTED,
-            ).grid(row=0, column=index, padx=(0, 22))
-
-        toolbar = ctk.CTkFrame(
-            header,
-            fg_color=SURFACE_ALT,
-            corner_radius=10,
-            border_width=1,
-            border_color=BORDER,
-        )
-        toolbar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 10))
-        toolbar.grid_columnconfigure(2, weight=1)
-
-        self.fetch_button = ctk.CTkButton(
-            toolbar,
-            text="GO",
-            width=42,
-            height=38,
-            corner_radius=999,
-            command=self.fetch_info,
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=13, weight="bold"),
-        )
-        self.fetch_button.grid(row=0, column=0, padx=(8, 8), pady=8)
-
-        ctk.CTkLabel(
-            toolbar,
-            text="LINK",
-            width=48,
-            corner_radius=8,
-            fg_color=SURFACE_RAISED,
-            text_color=TEXT_MUTED,
-            font=ctk.CTkFont(size=11, weight="bold"),
-        ).grid(row=0, column=1, padx=(0, 8), pady=8)
-
-        self.url_entry = ctk.CTkEntry(
-            toolbar,
-            textvariable=self.url_var,
-            height=38,
-            corner_radius=8,
-            border_color=BORDER,
-            fg_color="#232323",
-            text_color=TEXT_PRIMARY,
-            placeholder_text="URL을 입력하세요",
-        )
-        self.url_entry.grid(row=0, column=2, sticky="ew", pady=8)
-        self.url_entry.bind("<Return>", lambda _event: self.fetch_info())
-
-        self.download_button = ctk.CTkButton(
-            toolbar,
-            text="DOWNLOAD",
-            width=120,
-            height=38,
-            corner_radius=8,
-            command=self.start_download,
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=13, weight="bold"),
-        )
-        self.download_button.grid(row=0, column=3, padx=8, pady=8)
-
     def _build_settings(self, parent: ctk.CTkFrame) -> None:
-        settings = ctk.CTkFrame(
+        self.settings_frame = ctk.CTkFrame(
             parent,
             fg_color=SURFACE,
             corner_radius=12,
             border_width=1,
             border_color=BORDER,
         )
-        settings.grid(row=1, column=0, sticky="ew", pady=(10, 10))
-        settings.grid_columnconfigure(1, weight=1)
-        settings.grid_columnconfigure(3, weight=1)
+        # self.settings_frame.grid(row=1, column=0, sticky="ew", pady=(10, 10))
+        self.settings_frame.grid_columnconfigure(1, weight=1)
+        self.settings_frame.grid_columnconfigure(3, weight=1)
 
         self.paste_button = ctk.CTkButton(
-            settings,
-            text="붙여넣기",
+            self.settings_frame,
+            text="Manual Paste",
             width=82,
             height=32,
             corner_radius=8,
-            command=self.paste_url,
+            command=self.paste_and_download,
             fg_color=SURFACE_RAISED,
             hover_color="#383838",
             border_width=1,
@@ -327,7 +279,7 @@ class CimeDownloaderApp(ctk.CTk):
         self.paste_button.grid(row=0, column=0, padx=(10, 8), pady=10)
 
         self.folder_button = ctk.CTkButton(
-            settings,
+            self.settings_frame,
             text="폴더",
             width=70,
             height=32,
@@ -342,7 +294,7 @@ class CimeDownloaderApp(ctk.CTk):
         self.folder_button.grid(row=0, column=1, sticky="w", padx=(0, 8), pady=10)
 
         self.folder_label = ctk.CTkLabel(
-            settings,
+            self.settings_frame,
             textvariable=self.folder_summary_var,
             anchor="w",
             justify="left",
@@ -352,7 +304,7 @@ class CimeDownloaderApp(ctk.CTk):
         self.folder_label.grid(row=0, column=2, sticky="ew", padx=(0, 16), pady=10)
 
         self.file_entry = ctk.CTkEntry(
-            settings,
+            self.settings_frame,
             textvariable=self.file_name_var,
             height=32,
             corner_radius=8,
@@ -365,7 +317,7 @@ class CimeDownloaderApp(ctk.CTk):
         self.file_name_var.trace_add("write", self._refresh_file_summary)
 
         self.overwrite_switch = ctk.CTkSwitch(
-            settings,
+            self.settings_frame,
             text="덮어쓰기",
             progress_color=ACCENT,
             button_color=TEXT_PRIMARY,
@@ -378,7 +330,7 @@ class CimeDownloaderApp(ctk.CTk):
         self.overwrite_switch.grid(row=0, column=4, padx=(0, 10), pady=10)
 
         self.open_folder_button = ctk.CTkButton(
-            settings,
+            self.settings_frame,
             text="열기",
             width=70,
             height=32,
@@ -393,14 +345,15 @@ class CimeDownloaderApp(ctk.CTk):
         self.open_folder_button.grid(row=0, column=5, padx=(0, 10), pady=10)
 
     def _build_queue_area(self, parent: ctk.CTkFrame) -> None:
-        body = ctk.CTkFrame(
+        self.queue_area = ctk.CTkFrame(
             parent,
             fg_color=SURFACE,
             corner_radius=12,
             border_width=1,
             border_color=BORDER,
         )
-        body.grid(row=2, column=0, sticky="nsew")
+        self.queue_area.grid(row=2, column=0, sticky="nsew")
+        body = self.queue_area
         body.grid_columnconfigure(0, weight=1)
         body.grid_rowconfigure(1, weight=1)
         body.grid_rowconfigure(3, weight=0)
@@ -493,17 +446,17 @@ class CimeDownloaderApp(ctk.CTk):
             text_color=TEXT_MUTED,
         ).grid(row=1, column=2, sticky="w", padx=12, pady=(0, 10))
 
-        log_shell = ctk.CTkFrame(
+        self.log_shell = ctk.CTkFrame(
             body,
             fg_color=LOG_BG,
             corner_radius=10,
             border_width=1,
             border_color=BORDER,
         )
-        log_shell.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
-        log_shell.grid_columnconfigure(0, weight=1)
+        # self.log_shell.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.log_shell.grid_columnconfigure(0, weight=1)
 
-        log_header = ctk.CTkFrame(log_shell, fg_color="transparent")
+        log_header = ctk.CTkFrame(self.log_shell, fg_color="transparent")
         log_header.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 4))
         log_header.grid_columnconfigure(0, weight=1)
 
@@ -531,7 +484,7 @@ class CimeDownloaderApp(ctk.CTk):
         self.clear_log_button.grid(row=0, column=1, sticky="e")
 
         self.log_text = ctk.CTkTextbox(
-            log_shell,
+            self.log_shell,
             height=78,
             fg_color="transparent",
             text_color=TEXT_PRIMARY,
@@ -577,6 +530,21 @@ class CimeDownloaderApp(ctk.CTk):
         )
         self.status_label.grid(row=0, column=0, sticky="ew")
 
+        self.log_toggle_button = ctk.CTkButton(
+            bottom_row,
+            text="Show Log",
+            width=80,
+            height=28,
+            corner_radius=8,
+            command=self.toggle_log,
+            fg_color=SURFACE_RAISED,
+            hover_color="#383838",
+            border_width=1,
+            border_color=BORDER,
+            text_color=TEXT_PRIMARY,
+        )
+        self.log_toggle_button.grid(row=0, column=1, padx=(0, 10))
+
         self.cancel_button = ctk.CTkButton(
             bottom_row,
             text="취소",
@@ -590,20 +558,38 @@ class CimeDownloaderApp(ctk.CTk):
             border_color=BORDER,
             text_color=TEXT_PRIMARY,
         )
-        self.cancel_button.grid(row=0, column=1, padx=(10, 0))
+        self.cancel_button.grid(row=0, column=2, padx=(0, 0))
 
-    def paste_url(self) -> None:
+    def paste_and_download(self) -> None:
         try:
             value = self.clipboard_get().strip()
         except tk.TclError:
-            messagebox.showinfo("클립보드 비어 있음", "붙여넣을 URL이 없습니다.")
+            messagebox.showinfo("Empty Clipboard", "No URL found in clipboard.")
             return
         if not value:
-            messagebox.showinfo("클립보드 비어 있음", "붙여넣을 URL이 없습니다.")
+            messagebox.showinfo("Empty Clipboard", "No URL found in clipboard.")
             return
 
         self.url_var.set(value)
-        self.log("클립보드에서 URL을 붙여넣었습니다.")
+        self.log(f"Pasted URL from clipboard: {value}")
+        self.start_download()
+
+    def toggle_smart_mode(self) -> None:
+        self.smart_mode_enabled = not self.smart_mode_enabled
+        if self.smart_mode_enabled:
+            self.settings_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+            self.smart_mode_button.configure(fg_color=ACCENT, hover_color=ACCENT_HOVER)
+        else:
+            self.settings_frame.grid_forget()
+            self.smart_mode_button.configure(fg_color=SURFACE_RAISED, hover_color="#383838")
+
+    def toggle_log(self) -> None:
+        if self.log_shell.winfo_manager():
+            self.log_shell.grid_forget()
+            self.log_toggle_button.configure(text="Show Log")
+        else:
+            self.log_shell.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
+            self.log_toggle_button.configure(text="Hide Log")
 
     def choose_folder(self) -> None:
         selected = filedialog.askdirectory(initialdir=self.output_dir_var.get() or str(Path.cwd()))
@@ -879,8 +865,7 @@ class CimeDownloaderApp(ctk.CTk):
         action_state = "disabled" if busy else "normal"
         cancel_state = "normal" if self.is_downloading else "disabled"
 
-        self.fetch_button.configure(state=action_state)
-        self.download_button.configure(state=action_state)
+        self.paste_link_button.configure(state=action_state)
         self.paste_button.configure(state=action_state)
         self.folder_button.configure(state=action_state)
         self.open_folder_button.configure(state="normal")
